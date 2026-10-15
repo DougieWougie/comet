@@ -21,6 +21,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.graphics.luminance
 import dev.dougie.comet.ui.theme.DownloadColor
 import dev.dougie.comet.ui.theme.PingColor
 import dev.dougie.comet.ui.theme.Space
@@ -79,11 +80,11 @@ class SceneInput(
 private val MoonLabels = listOf("PING", "DOWNLOAD", "UPLOAD")
 private val MoonUnits = listOf("ms", "Mbps", "Mbps")
 const val MoonScaleIdle = 0.13f
-const val MoonScaleDone = 0.24f
-const val MoonScaleActive = 0.34f
+const val MoonScaleDone = 0.3f
+const val MoonScaleActive = 0.42f
 
 private const val SlotY = 0.8f
-private const val SlotRadiusFraction = 0.095f
+private const val SlotRadiusFraction = 0.105f
 
 /** Moons leave one after another; returns 0..1 eased progress of moon [i]'s flight. */
 private fun landed(input: SceneInput, i: Int): Float {
@@ -240,33 +241,31 @@ private fun DrawScope.drawMoon(
         )
     }
 
+    // Dark text on bright moons, light text on dark ones (light-mode moons), never outlined:
+    // outlines clog the digits at this size.
+    val onMoon = if (base.luminance() > 0.35f) Ink else Color.White
     input.values[i]?.let { value ->
-        drawCentered(text, value, pos + Offset(0f, -radius * 0.12f), radius * 0.62f, Color.White, FontWeight.Bold)
-        drawCentered(text, MoonUnits[i], pos + Offset(0f, radius * 0.45f), radius * 0.26f, Color.White, FontWeight.Bold)
+        drawCentered(text, value, pos + Offset(0f, -radius * 0.12f), radius * 0.7f, onMoon, FontWeight.ExtraBold)
+        drawCentered(text, MoonUnits[i], pos + Offset(0f, radius * 0.5f), radius * 0.3f, onMoon, FontWeight.Bold)
     }
     if (f > 0f) {
-        val label = base.copy(alpha = f)
-        drawCentered(text, MoonLabels[i], pos + Offset(0f, radius + size.width * 0.045f), size.width * 0.03f, label, FontWeight.Bold, 1.5.sp, f)
+        val fg = (if (input.dark) Color.White else Ink).copy(alpha = f)
+        drawCentered(text, MoonLabels[i], pos + Offset(0f, radius + size.width * 0.05f), size.width * 0.036f, fg, FontWeight.ExtraBold, 1.5.sp)
         input.subs[i]?.let {
-            drawCentered(text, it, pos + Offset(0f, radius + size.width * 0.095f), size.width * 0.028f, label, FontWeight.Bold, alpha = f)
+            drawCentered(text, it, pos + Offset(0f, radius + size.width * 0.103f), size.width * 0.032f, fg.copy(alpha = f * 0.8f), FontWeight.Medium)
         }
     }
 }
 
-/** Text with a bold ink outline, drawn as a stroked pass under the fill. */
 private fun DrawScope.drawCentered(
     measurer: TextMeasurer, string: String, center: Offset, sizePx: Float, color: Color,
-    weight: FontWeight = FontWeight.Normal, letterSpacing: TextUnit = TextUnit.Unspecified, alpha: Float = 1f,
+    weight: FontWeight = FontWeight.Normal, letterSpacing: TextUnit = TextUnit.Unspecified,
 ) {
-    fun style(c: Color, draw: androidx.compose.ui.graphics.drawscope.DrawStyle? = null) = TextStyle(
-        fontSize = sizePx.toSp(), color = c, fontWeight = weight, letterSpacing = letterSpacing,
-        drawStyle = draw,
+    val layout = measurer.measure(
+        string,
+        TextStyle(fontSize = sizePx.toSp(), color = color, fontWeight = weight, letterSpacing = letterSpacing),
     )
-    val fill = measurer.measure(string, style(color))
-    val topLeft = center - Offset(fill.size.width / 2f, fill.size.height / 2f)
-    val outline = measurer.measure(string, style(Ink.copy(alpha = alpha), Stroke(width = sizePx * 0.13f, join = androidx.compose.ui.graphics.StrokeJoin.Round)))
-    drawText(outline, topLeft = topLeft)
-    drawText(fill, topLeft = topLeft)
+    drawText(layout, topLeft = center - Offset(layout.size.width / 2f, layout.size.height / 2f))
 }
 
 private fun DrawScope.drawPlanet(spin: Float, accent: Color, c: Offset, r: Float) {

@@ -52,6 +52,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.dougie.comet.CometViewModel
+import dev.dougie.comet.speedtest.Grading
 import dev.dougie.comet.speedtest.Phase
 import dev.dougie.comet.speedtest.TestState
 import java.util.Locale
@@ -121,6 +122,11 @@ fun CometApp(vm: CometViewModel, dark: Boolean) {
         moonScale = moonScale,
         fly = fly,
         ship = ship.asState(),
+        grades = listOf(
+            test.pingMs?.let(Grading::ping),
+            test.downloadMbps?.let(Grading::download),
+            test.uploadMbps?.let(Grading::upload),
+        ),
         shipDown = shipDown,
     )
     val textMeasurer = rememberTextMeasurer()

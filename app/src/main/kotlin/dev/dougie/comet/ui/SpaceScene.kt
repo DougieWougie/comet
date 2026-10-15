@@ -14,6 +14,7 @@ import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.Color
+import dev.dougie.comet.speedtest.Grade
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
@@ -37,6 +38,12 @@ import kotlin.random.Random
 fun moonColors(dark: Boolean) =
     if (dark) listOf(PingColor, DownloadColor, UploadColor)
     else listOf(Color(0xFFB86E00), Color(0xFF007FA8), Color(0xFF9B2FD0))
+
+fun gradeColor(grade: Grade, dark: Boolean) = when (grade) {
+    Grade.Bad -> if (dark) Color(0xFFFF4D5E) else Color(0xFFC62B3A)
+    Grade.Ok -> if (dark) Color(0xFFFFB627) else Color(0xFFE59A00)
+    Grade.Good -> if (dark) Color(0xFF3DDC84) else Color(0xFF1E9E55)
+}
 
 private class Star(val x: Float, val y: Float, val depth: Float)
 
@@ -78,6 +85,8 @@ class SceneInput(
     val fly: State<Float>,
     /** VPN ship position: 0 = off-screen left, 1 = hovering, 2 = off-screen right. */
     val ship: State<Float>,
+    /** Verdict per moon (ping, download, upload); moons turn red/amber/green as they land. */
+    val grades: List<Grade?>,
     /** 0 = ship hovers by the planet, 1 = it has dropped down to hover over the results. */
     val shipDown: State<Float>,
 )
@@ -220,7 +229,7 @@ private fun DrawScope.drawMoon(
 
     val active = input.activeMoon == i
     val lit = active || input.moonDone[i]
-    val base = colors[i]
+    val base = input.grades[i]?.let { lerp(colors[i], gradeColor(it, input.dark), f) } ?: colors[i]
     val body = if (lit) base else lerp(base, Color(0xFF3A4060), 0.75f)
     val outline = radius * 0.09f
 

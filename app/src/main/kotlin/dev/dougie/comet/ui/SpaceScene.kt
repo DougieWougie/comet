@@ -20,6 +20,7 @@ import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.luminance
 import dev.dougie.comet.ui.theme.DownloadColor
@@ -75,6 +76,8 @@ class SceneInput(
     val moonScale: List<State<Float>>,
     /** 0 = moons in orbit, 1 = all three landed at the bottom as the results. */
     val fly: State<Float>,
+    /** VPN ship position: 0 = off-screen left, 1 = hovering, 2 = off-screen right. */
+    val ship: State<Float>,
 )
 
 private val MoonLabels = listOf("PING", "DOWNLOAD", "UPLOAD")
@@ -123,6 +126,7 @@ fun DrawScope.drawSpace(clock: SceneClock, input: SceneInput, text: TextMeasurer
     for (i in 0..2) if (!moonInFront(clock, input, i)) drawMoon(i, clock, input, text, planetCenter, planetRadius, colors)
     drawPlanet(clock.planetSpin.floatValue, accent, planetCenter, planetRadius)
     for (i in 0..2) if (moonInFront(clock, input, i)) drawMoon(i, clock, input, text, planetCenter, planetRadius, colors)
+    drawShip(input.ship.value, clock.planetSpin.floatValue, text, planetCenter, planetRadius, dark)
 }
 
 private fun moonInFront(clock: SceneClock, input: SceneInput, i: Int) = landed(input, i) > 0f || sin(clock.orbit[i].floatValue) > 0f
@@ -266,6 +270,45 @@ private fun DrawScope.drawCentered(
         TextStyle(fontSize = sizePx.toSp(), color = color, fontWeight = weight, letterSpacing = letterSpacing),
     )
     drawText(layout, topLeft = center - Offset(layout.size.width / 2f, layout.size.height / 2f))
+}
+
+/** A small ship that hovers above the planet while a VPN is carrying the test. */
+private fun DrawScope.drawShip(p: Float, t: Float, text: TextMeasurer, c: Offset, r: Float, dark: Boolean) {
+    if (p <= 0f || p >= 2f) return
+    val hover = Offset(c.x + r * 1.2f, c.y - r * 1.8f)
+    val start = Offset(-r, hover.y - r * 0.6f)
+    val end = Offset(size.width + r, hover.y - r * 0.9f)
+    val pos = if (p <= 1f) androidx.compose.ui.geometry.lerp(start, hover, p) else androidx.compose.ui.geometry.lerp(hover, end, p - 1f)
+    val bob = if (p == 1f) sin(t * 5f) * r * 0.05f else 0f
+    val s = r * 0.3f
+    val tilt = if (p < 1f) -10f * (1f - p) else -14f * (p - 1f)
+
+    translate(pos.x, pos.y + bob) {
+        rotate(tilt, Offset.Zero) {
+            val flame = s * (0.7f + 0.3f * sin(t * 45f))
+            drawPath(Path().apply { moveTo(-s * 0.8f, -s * 0.22f); lineTo(-s * 0.8f - flame, 0f); lineTo(-s * 0.8f, s * 0.22f); close() }, Color(0xFFFF8A2B))
+            drawPath(Path().apply { moveTo(-s * 0.8f, -s * 0.11f); lineTo(-s * 0.8f - flame * 0.6f, 0f); lineTo(-s * 0.8f, s * 0.11f); close() }, Color(0xFFFFE27A))
+
+            val fin = Path().apply { moveTo(-s * 0.55f, s * 0.3f); lineTo(-s * 0.95f, s * 0.85f); lineTo(-s * 0.05f, s * 0.35f); close() }
+            val hull = Path().apply {
+                moveTo(s * 1.25f, 0f); lineTo(s * 0.25f, -s * 0.46f); lineTo(-s * 0.8f, -s * 0.36f)
+                lineTo(-s * 0.8f, s * 0.36f); lineTo(s * 0.25f, s * 0.46f); close()
+            }
+            val ink = s * 0.12f
+            drawPath(fin, Ink, style = Stroke(ink * 2, join = androidx.compose.ui.graphics.StrokeJoin.Round))
+            drawPath(fin, Color(0xFFE8504A))
+            drawPath(hull, Ink, style = Stroke(ink * 2, join = androidx.compose.ui.graphics.StrokeJoin.Round))
+            drawPath(hull, Color(0xFFD5DEF2))
+            // Hard shadow on the lower half.
+            clipPath(hull) {
+                drawRect(Color.Black.copy(alpha = 0.22f), Offset(-s, s * 0.02f), androidx.compose.ui.geometry.Size(s * 2.5f, s))
+            }
+            drawCircle(Ink, s * 0.27f, Offset(s * 0.3f, -s * 0.06f))
+            drawCircle(Color(0xFF4DD8FF), s * 0.2f, Offset(s * 0.3f, -s * 0.06f))
+            drawCircle(Color.White.copy(alpha = 0.8f), s * 0.06f, Offset(s * 0.24f, -s * 0.13f))
+        }
+    }
+    drawCentered(text, "VPN", Offset(pos.x, pos.y + bob + s * 1.5f), s * 0.55f, if (dark) Color.White else Ink, FontWeight.ExtraBold, 1.5.sp)
 }
 
 private fun DrawScope.drawPlanet(spin: Float, accent: Color, c: Offset, r: Float) {

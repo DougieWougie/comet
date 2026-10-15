@@ -3,6 +3,8 @@ package dev.dougie.comet.ui
 import android.Manifest
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutLinearInEasing
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -29,6 +31,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -90,6 +93,18 @@ fun CometApp(vm: CometViewModel, dark: Boolean) {
         animateFloatAsState(target, tween(450), label = "moonScale$i")
     }
     val fly = animateFloatAsState(if (test.phase == Phase.Done) 1f else 0f, tween(1600, easing = FastOutSlowInEasing), label = "fly")
+    // VPN ship: 0 = off-screen left, 1 = hovering by the planet, 2 = gone off-screen right.
+    val ship = remember { Animatable(0f) }
+    val shipWanted = network?.vpn == true && test.running
+    LaunchedEffect(shipWanted) {
+        if (shipWanted) {
+            ship.snapTo(0f)
+            ship.animateTo(1f, tween(1500, easing = FastOutSlowInEasing))
+        } else if (ship.value > 0f) {
+            ship.animateTo(2f, tween(1000, easing = FastOutLinearInEasing))
+            ship.snapTo(0f)
+        }
+    }
     val input = SceneInput(
         energy = energyForMbps(test.liveMbps),
         activeMoon = activeMoon,
@@ -104,6 +119,7 @@ fun CometApp(vm: CometViewModel, dark: Boolean) {
         subs = listOf(test.jitterMs?.let { "jitter ${format(it)} ms" }, null, null),
         moonScale = moonScale,
         fly = fly,
+        ship = ship.asState(),
     )
     val textMeasurer = rememberTextMeasurer()
 

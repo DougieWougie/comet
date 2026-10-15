@@ -27,8 +27,8 @@ class CometPass(val fromX: Float, val fromY: Float, val toX: Float, val toY: Flo
             val cx = 0.1f + 0.8f * Random.nextFloat()
             val cy = 0.1f + 0.8f * Random.nextFloat()
             val angle = Random.nextFloat() * 2f * PI.toFloat()
-            val dx = cos(angle) * 1.2f
-            val dy = sin(angle) * 1.2f
+            val dx = cos(angle) * 1.5f
+            val dy = sin(angle) * 1.5f
             return CometPass(cx - dx, cy - dy, cx + dx, cy + dy, 0.5f + 0.3f * Random.nextFloat())
         }
     }

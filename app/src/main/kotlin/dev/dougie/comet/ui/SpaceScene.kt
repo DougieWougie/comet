@@ -272,7 +272,7 @@ private fun DrawScope.drawCentered(
     drawText(layout, topLeft = center - Offset(layout.size.width / 2f, layout.size.height / 2f))
 }
 
-/** A small ship that hovers above the planet while a VPN is carrying the test. */
+/** A small flying saucer that hovers above the planet while a VPN is carrying the test. */
 private fun DrawScope.drawShip(p: Float, t: Float, text: TextMeasurer, c: Offset, r: Float, dark: Boolean) {
     if (p <= 0f || p >= 2f) return
     val hover = Offset(c.x + r * 1.2f, c.y - r * 1.8f)
@@ -281,34 +281,48 @@ private fun DrawScope.drawShip(p: Float, t: Float, text: TextMeasurer, c: Offset
     val pos = if (p <= 1f) androidx.compose.ui.geometry.lerp(start, hover, p) else androidx.compose.ui.geometry.lerp(hover, end, p - 1f)
     val bob = if (p == 1f) sin(t * 5f) * r * 0.05f else 0f
     val s = r * 0.3f
-    val tilt = if (p < 1f) -10f * (1f - p) else -14f * (p - 1f)
+    // Gentle wobble while hovering; leans into the flight otherwise.
+    val tilt = if (p < 1f) -8f * (1f - p) else if (p == 1f) sin(t * 3f) * 4f else -10f * (p - 1f)
+    val ink = s * 0.1f
 
     translate(pos.x, pos.y + bob) {
         rotate(tilt, Offset.Zero) {
-            val flame = s * (0.7f + 0.3f * sin(t * 45f))
-            drawPath(Path().apply { moveTo(-s * 0.8f, -s * 0.22f); lineTo(-s * 0.8f - flame, 0f); lineTo(-s * 0.8f, s * 0.22f); close() }, Color(0xFFFF8A2B))
-            drawPath(Path().apply { moveTo(-s * 0.8f, -s * 0.11f); lineTo(-s * 0.8f - flame * 0.6f, 0f); lineTo(-s * 0.8f, s * 0.11f); close() }, Color(0xFFFFE27A))
+            // Speed streaks trailing behind while it is flying in or out.
+            if (p != 1f) {
+                for ((k, dy) in listOf(-0.25f, 0.05f, 0.3f).withIndex()) {
+                    val len = s * (1.2f + 0.5f * k)
+                    drawLine(Color.White.copy(alpha = 0.8f), Offset(-s * 1.5f, s * dy), Offset(-s * 1.5f - len, s * dy), strokeWidth = s * 0.06f)
+                }
+            }
+            val dome = Rect(Offset(0f, -s * 0.2f), s * 0.5f)
+            val underside = Rect(Offset(-s * 0.55f, s * 0.2f), Offset(s * 0.55f, s * 0.48f))
+            val disc = Rect(Offset(-s * 1.25f, -s * 0.2f), Offset(s * 1.25f, s * 0.42f))
 
-            val fin = Path().apply { moveTo(-s * 0.55f, s * 0.3f); lineTo(-s * 0.95f, s * 0.85f); lineTo(-s * 0.05f, s * 0.35f); close() }
-            val hull = Path().apply {
-                moveTo(s * 1.25f, 0f); lineTo(s * 0.25f, -s * 0.46f); lineTo(-s * 0.8f, -s * 0.36f)
-                lineTo(-s * 0.8f, s * 0.36f); lineTo(s * 0.25f, s * 0.46f); close()
+            // Glass dome first, then the disc covers its lower half.
+            drawCircle(Ink, s * 0.5f + ink, Offset(0f, -s * 0.2f))
+            drawCircle(Color(0xFF7FE6FF), s * 0.5f, Offset(0f, -s * 0.2f))
+            drawArc(Color.Black.copy(alpha = 0.18f), -60f, 150f, true, Offset(-s * 0.5f, -s * 0.7f), androidx.compose.ui.geometry.Size(s, s))
+            drawOval(Color.White.copy(alpha = 0.85f), Offset(-s * 0.3f, -s * 0.6f), androidx.compose.ui.geometry.Size(s * 0.22f, s * 0.12f))
+
+            drawOval(Ink, underside.topLeft - Offset(ink, ink), androidx.compose.ui.geometry.Size(underside.width + ink * 2, underside.height + ink * 2))
+            drawOval(Color(0xFF8E9BB8), underside.topLeft, underside.size)
+
+            drawOval(Ink, disc.topLeft - Offset(ink, ink), androidx.compose.ui.geometry.Size(disc.width + ink * 2, disc.height + ink * 2))
+            drawOval(Color(0xFFDCE4F5), disc.topLeft, disc.size)
+            // Hard shadow on the lower half of the disc, then a rim highlight.
+            clipPath(Path().apply { addOval(disc) }) {
+                drawRect(Color.Black.copy(alpha = 0.22f), Offset(-s * 1.3f, s * 0.12f), androidx.compose.ui.geometry.Size(s * 2.6f, s * 0.4f))
+                drawOval(Color.White.copy(alpha = 0.55f), Offset(-s * 1.0f, -s * 0.15f), androidx.compose.ui.geometry.Size(s * 0.7f, s * 0.12f))
             }
-            val ink = s * 0.12f
-            drawPath(fin, Ink, style = Stroke(ink * 2, join = androidx.compose.ui.graphics.StrokeJoin.Round))
-            drawPath(fin, Color(0xFFE8504A))
-            drawPath(hull, Ink, style = Stroke(ink * 2, join = androidx.compose.ui.graphics.StrokeJoin.Round))
-            drawPath(hull, Color(0xFFD5DEF2))
-            // Hard shadow on the lower half.
-            clipPath(hull) {
-                drawRect(Color.Black.copy(alpha = 0.22f), Offset(-s, s * 0.02f), androidx.compose.ui.geometry.Size(s * 2.5f, s))
+            // Rim lights chasing each other.
+            for (k in -2..2) {
+                val on = sin(t * 9f - k * 1.3f) > 0f
+                drawCircle(Ink, s * 0.1f, Offset(k * s * 0.45f, s * 0.11f))
+                drawCircle(if (on) Color(0xFFFFE27A) else Color(0xFFE8504A), s * 0.075f, Offset(k * s * 0.45f, s * 0.11f))
             }
-            drawCircle(Ink, s * 0.27f, Offset(s * 0.3f, -s * 0.06f))
-            drawCircle(Color(0xFF4DD8FF), s * 0.2f, Offset(s * 0.3f, -s * 0.06f))
-            drawCircle(Color.White.copy(alpha = 0.8f), s * 0.06f, Offset(s * 0.24f, -s * 0.13f))
         }
     }
-    drawCentered(text, "VPN", Offset(pos.x, pos.y + bob + s * 1.5f), s * 0.55f, if (dark) Color.White else Ink, FontWeight.ExtraBold, 1.5.sp)
+    drawCentered(text, "VPN", Offset(pos.x, pos.y + bob + s * 1.3f), s * 0.55f, if (dark) Color.White else Ink, FontWeight.ExtraBold, 1.5.sp)
 }
 
 private fun DrawScope.drawPlanet(spin: Float, accent: Color, c: Offset, r: Float) {

@@ -1,13 +1,14 @@
 # Nginx Proxy Manager settings
 
-Create a Proxy Host:
+Create a Proxy Host (the DNS record must already resolve):
 
 | Field | Value |
 |---|---|
 | Domain Names | `speed.example.com` |
 | Scheme / Forward Host / Port | `http` / `comet-speedtest` / `8080` |
+| Block Common Exploits | on |
 | Websockets Support | off (not needed) |
-| SSL | Request a Let's Encrypt certificate, Force SSL on |
+| SSL | Request a Let's Encrypt certificate, Force SSL and HTTP/2 on |
 
 Under **Advanced → Custom Nginx Configuration** paste the following. Without it nginx
 buffers the 100 MB downloads and the uploads, which makes the measured speed reflect

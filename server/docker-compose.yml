@@ -1,0 +1,24 @@
+# LibreSpeed backend for Comet, behind Nginx Proxy Manager.
+# Deploy as /opt/docker/comet-speedtest/ and see README.md.
+services:
+  comet-speedtest:
+    image: ghcr.io/librespeed/speedtest:6.3.0
+    container_name: comet-speedtest
+    restart: unless-stopped
+    environment:
+      MODE: backend      # only empty.php, garbage.php and getIP.php; the app is the frontend
+      TELEMETRY: "false"
+      WEBPORT: "8080"
+    # The image's own check requests /, which is 403 in backend mode.
+    healthcheck:
+      test: ["CMD", "curl", "-fs", "-o", "/dev/null", "http://localhost:8080/empty.php"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    networks:
+      - proxy
+    # No ports: only NPM reaches it, over the shared proxy network.
+
+networks:
+  proxy:
+    external: true

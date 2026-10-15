@@ -13,11 +13,10 @@ or stop. Tap the bubble at the top left for network details.
 
 ```sh
 cd server
-echo NPM_NETWORK=<network nginx proxy manager is on> > .env
-docker compose up -d --build
+docker compose up -d   # needs the external `proxy` network, see server/README.md
 ```
 
-Then follow `server/nginx-proxy-manager.md` (disabling buffering matters for accurate numbers).
+Then follow `server/README.md` and `server/nginx-proxy-manager.md` (disabling buffering matters for accurate numbers).
 The container runs LibreSpeed in `backend` mode, so `empty.php` / `garbage.php` are served at
 the root and the server URL in the app is simply `https://speed.example.com/`.
 

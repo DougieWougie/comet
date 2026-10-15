@@ -1,0 +1,10 @@
+.gradle/
+build/
+local.properties
+.idea/
+*.iml
+.kotlin/
+captures/
+# Local-only compose overrides (SELinux :z bind mounts etc.)
+compose.override.yml
+.env

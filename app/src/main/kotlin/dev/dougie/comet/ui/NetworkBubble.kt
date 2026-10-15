@@ -6,6 +6,7 @@ import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -31,6 +32,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
@@ -68,10 +72,15 @@ fun NetworkBubble(
         modifier = modifier
             .widthIn(max = 360.dp)
             .animateContentSize()
+            // Hard comic-style drop shadow.
+            .drawBehind {
+                val corner = (if (expanded) 24.dp else 28.dp).toPx()
+                drawRoundRect(Color(0xFF070A1C), Offset(5.dp.toPx(), 5.dp.toPx()), size, CornerRadius(corner))
+            }
             .semantics { stateDescription = if (expanded) "Expanded" else "Collapsed" },
         shape = RoundedCornerShape(if (expanded) 24.dp else 28.dp),
-        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.14f)),
+        color = if (MaterialTheme.colorScheme.background.luminance() < 0.5f) Color(0xFF1B2552) else MaterialTheme.colorScheme.surface,
+        border = BorderStroke(2.5.dp, Color(0xFF070A1C)),
     ) {
         Column(Modifier.clickable(role = Role.Button, onClickLabel = if (expanded) "Collapse network info" else "Expand network info") { expanded = !expanded }) {
             Row(Modifier.padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {

@@ -180,7 +180,7 @@ private fun PlanetLabel(test: TestState) {
         Phase.Failed -> Triple("FAILED", "↻", "tap to retry")
         Phase.Idle -> Triple("READY", "GO", "tap to start")
     }
-    val shadow = androidx.compose.ui.graphics.Shadow(Color.Black, blurRadius = 12f)
+    val shadow = androidx.compose.ui.graphics.Shadow(Color(0xFF070A1C), androidx.compose.ui.geometry.Offset(4f, 4f), blurRadius = 0f)
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Text(caption, fontSize = 12.sp, letterSpacing = 2.sp, color = Color.White.copy(alpha = 0.85f), style = androidx.compose.ui.text.TextStyle(shadow = shadow))
         Text(value, fontSize = 44.sp, fontWeight = FontWeight.Bold, color = Color.White, style = androidx.compose.ui.text.TextStyle(shadow = shadow))

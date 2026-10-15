@@ -2,7 +2,7 @@ package dev.dougie.comet.ui
 
 import androidx.compose.runtime.State
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Shadow
+import androidx.compose.ui.graphics.ClipOp
 import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
@@ -13,7 +13,6 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
@@ -92,21 +91,28 @@ private fun landed(input: SceneInput, i: Int): Float {
     return t * t * (3f - 2f * t)
 }
 
+/** Cel-shading ink: every shape gets a dark outline and flat, hard-edged tones. */
+private val Ink = Color(0xFF070A1C)
+
 fun DrawScope.drawSpace(clock: SceneClock, input: SceneInput, text: TextMeasurer, planetRadius: Float, planetCenter: Offset) {
     val dark = input.dark
-    drawRect(Brush.verticalGradient(if (dark) listOf(Space, SpaceDeep, Space) else listOf(Color(0xFFC4DBFF), Color(0xFFEAF2FF), Color(0xFFC4DBFF))))
-    drawStars(clock.starScroll.floatValue, input.energy, if (dark) Color.White else Color(0xFF3B4A8A))
+    // Stepped sky: flat horizontal bands instead of a smooth gradient.
+    val ends = if (dark) Space to SpaceDeep else Color(0xFFB4D0FF) to Color(0xFFE0EBFF)
+    val bands = List(9) { i ->
+        val t = 1f - kotlin.math.abs(i - 4) / 4f // 0 at the edges, 1 in the middle
+        lerp(ends.first, ends.second, t)
+    }
+    val bandHeight = size.height / bands.size
+    bands.forEachIndexed { i, c -> drawRect(c, Offset(0f, i * bandHeight), androidx.compose.ui.geometry.Size(size.width, bandHeight + 1f)) }
+    drawStars(clock.starScroll.floatValue, input.energy, if (dark) Color.White else Color(0xFF2A3A7A))
 
-    // The comet is far behind the planet: draw it in a layer, then erase whatever the planet and
-    // its corona cover. The eraser fades out like the corona, so there is no visible edge.
+    // The comet is far behind the planet: draw it in a layer, then erase everything the planet and
+    // its (flat, hard-edged) corona cover.
     val coronaRadius = planetRadius * CoronaScale
     drawIntoCanvas { canvas ->
         canvas.saveLayer(Rect(Offset.Zero, size), Paint())
         drawComet(clock.cometProgress.floatValue, clock.comet.value, dark)
-        drawCircle(
-            Brush.radialGradient(0f to Color.Black, 0.88f to Color.Black, 1f to Color.Transparent, center = planetCenter, radius = coronaRadius),
-            coronaRadius, planetCenter, blendMode = BlendMode.DstOut,
-        )
+        drawCircle(Color.Black, coronaRadius, planetCenter, blendMode = BlendMode.DstOut)
         canvas.restore()
     }
 
@@ -125,11 +131,19 @@ private fun DrawScope.drawStars(scroll: Float, energy: Float, tint: Color) {
     for (s in stars) {
         val x = ((s.x - scroll * s.depth) % 1f + 1f) % 1f * size.width
         val y = s.y * size.height
-        val color = tint.copy(alpha = 0.25f + 0.6f * s.depth)
+        val color = tint.copy(alpha = if (s.depth > 0.6f) 1f else 0.6f)
         if (streak > 2f) {
-            drawLine(color, Offset(x, y), Offset(x + streak * s.depth, y), strokeWidth = 1f + 1.5f * s.depth, cap = StrokeCap.Round)
+            drawLine(color, Offset(x, y), Offset(x + streak * s.depth, y), strokeWidth = 2f + 2f * s.depth, cap = StrokeCap.Butt)
+        } else if (s.depth > 0.8f) {
+            // Four-point sparkle on the nearest stars.
+            val k = 5f + 5f * s.depth
+            val spark = Path().apply {
+                moveTo(x, y - k); lineTo(x + k * 0.3f, y - k * 0.3f); lineTo(x + k, y); lineTo(x + k * 0.3f, y + k * 0.3f)
+                lineTo(x, y + k); lineTo(x - k * 0.3f, y + k * 0.3f); lineTo(x - k, y); lineTo(x - k * 0.3f, y - k * 0.3f); close()
+            }
+            drawPath(spark, color)
         } else {
-            drawCircle(color, radius = 0.8f + 1.6f * s.depth, center = Offset(x, y))
+            drawCircle(color, radius = 1.5f + 2.5f * s.depth, center = Offset(x, y))
         }
     }
 }
@@ -141,38 +155,39 @@ private fun DrawScope.drawComet(t: Float, pass: CometPass, dark: Boolean) {
     val len = kotlin.math.hypot(to.x - from.x, to.y - from.y)
     val dir = Offset((to.x - from.x) / len, (to.y - from.y) / len)
     val normal = Offset(-dir.y, dir.x)
-    // Small and faint: it is a long way off.
     val tailLength = size.width * 0.45f * pass.scale
-    val tail = Offset(head.x - dir.x * tailLength, head.y - dir.y * tailLength)
-    val w = size.width * 0.008f * pass.scale
-    val core = if (dark) Color(0xFFE8F8FF) else Color(0xFF1F5F9E)
+    val w = size.width * 0.009f * pass.scale
+    val core = if (dark) Color(0xFFE8F8FF) else Color(0xFFFFFFFF)
     val glow = if (dark) Color(0xFF4DD8FF) else Color(0xFF2A8FD0)
 
-    val path = Path().apply {
-        moveTo(head.x + normal.x * w, head.y + normal.y * w)
-        lineTo(tail.x, tail.y)
-        lineTo(head.x - normal.x * w, head.y - normal.y * w)
-        close()
+    // Flat, pointed tail in three nested tones, each with a hard edge.
+    fun tail(width: Float, length: Float, color: Color) {
+        val tip = Offset(head.x - dir.x * length, head.y - dir.y * length)
+        drawPath(
+            Path().apply {
+                moveTo(head.x + normal.x * width, head.y + normal.y * width)
+                lineTo(tip.x, tip.y)
+                lineTo(head.x - normal.x * width, head.y - normal.y * width)
+                close()
+            },
+            color,
+        )
     }
-    drawPath(path, Brush.linearGradient(listOf(core.copy(alpha = 0.85f), glow.copy(alpha = 0.45f), Color.Transparent), head, tail))
-    val dust = Path().apply {
-        moveTo(head.x + normal.x * w * 3, head.y + normal.y * w * 3)
-        lineTo(tail.x, tail.y)
-        lineTo(head.x - normal.x * w * 3, head.y - normal.y * w * 3)
-        close()
-    }
-    drawPath(dust, Brush.linearGradient(listOf(glow.copy(alpha = 0.2f), Color.Transparent), head, tail))
-    drawCircle(Brush.radialGradient(listOf(core, glow.copy(alpha = 0.5f), Color.Transparent), head, w * 5), w * 5, head)
+    tail(w * 3.2f, tailLength, glow.copy(alpha = 0.35f))
+    tail(w * 1.8f, tailLength * 0.75f, glow)
+    tail(w * 0.8f, tailLength * 0.5f, core)
+    drawCircle(Ink, w * 3.4f, head)
+    drawCircle(core, w * 2.6f, head)
 }
 
 private fun DrawScope.drawOrbit(i: Int, c: Offset, r: Float, dark: Boolean) {
     val rx = r * OrbitRadius[i]
     rotate(OrbitTilt, c) {
         drawOval(
-            (if (dark) Color.White else Color(0xFF0B1030)).copy(alpha = if (dark) 0.12f else 0.2f),
+            (if (dark) Color.White else Ink).copy(alpha = if (dark) 0.35f else 0.45f),
             topLeft = Offset(c.x - rx, c.y - rx * 0.28f),
             size = androidx.compose.ui.geometry.Size(rx * 2, rx * 0.56f),
-            style = Stroke(1.5f),
+            style = Stroke(3f, pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(18f, 14f))),
         )
     }
 }
@@ -200,83 +215,96 @@ private fun DrawScope.drawMoon(
     val lit = active || input.moonDone[i]
     val base = colors[i]
     val body = if (lit) base else lerp(base, Color(0xFF3A4060), 0.75f)
+    val outline = radius * 0.09f
 
-    if (lit) {
-        val glowRadius = radius * (3.2f - 0.8f * f)
-        val glowAlpha = (if (active) 0.55f else 0.3f) * (1f - 0.5f * f)
-        drawCircle(Brush.radialGradient(listOf(base.copy(alpha = glowAlpha), Color.Transparent), pos, glowRadius), glowRadius, pos)
-    }
+    // Hard-edged halo ring instead of a soft glow.
+    if (lit) drawCircle(base.copy(alpha = if (active) 0.3f else 0.18f), radius * (if (active) 1.55f else 1.4f), pos)
+    drawCircle(Ink, radius + outline, pos)
     drawCircle(body, radius, pos)
-    // Terminator shading
-    drawCircle(
-        Brush.radialGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.45f)), pos + Offset(-radius * 0.4f, -radius * 0.4f), radius * 1.5f),
-        radius, pos,
-    )
+    // Two flat shadow tones on the lower right, then a hard highlight.
+    val moon = Path().apply { addOval(Rect(pos, radius)) }
+    clipPath(moon) {
+        val light = Path().apply { addOval(Rect(pos + Offset(-radius * 0.22f, -radius * 0.22f), radius)) }
+        clipPath(light, ClipOp.Difference) { drawCircle(Color.Black.copy(alpha = 0.28f), radius, pos) }
+        val lighter = Path().apply { addOval(Rect(pos + Offset(-radius * 0.5f, -radius * 0.5f), radius)) }
+        clipPath(lighter, ClipOp.Difference) { drawCircle(Color.Black.copy(alpha = 0.22f), radius, pos) }
+    }
+    drawCircle(Color.White.copy(alpha = 0.75f), radius * 0.13f, pos + Offset(-radius * 0.45f, -radius * 0.5f))
+
     if (active) {
         drawArc(
             Color.White, -90f, 360f * input.moonProgress, false,
             topLeft = pos - Offset(radius * 1.25f, radius * 1.25f),
             size = androidx.compose.ui.geometry.Size(radius * 2.5f, radius * 2.5f),
-            style = Stroke(3f, cap = StrokeCap.Round),
+            style = Stroke(6f, cap = StrokeCap.Butt),
         )
     }
 
     input.values[i]?.let { value ->
         drawCentered(text, value, pos + Offset(0f, -radius * 0.12f), radius * 0.62f, Color.White, FontWeight.Bold)
-        drawCentered(text, MoonUnits[i], pos + Offset(0f, radius * 0.45f), radius * 0.26f, Color.White.copy(alpha = 0.85f))
+        drawCentered(text, MoonUnits[i], pos + Offset(0f, radius * 0.45f), radius * 0.26f, Color.White, FontWeight.Bold)
     }
     if (f > 0f) {
         val label = base.copy(alpha = f)
-        drawCentered(text, MoonLabels[i], pos + Offset(0f, radius + size.width * 0.045f), size.width * 0.03f, label, letterSpacing = 1.5.sp)
+        drawCentered(text, MoonLabels[i], pos + Offset(0f, radius + size.width * 0.045f), size.width * 0.03f, label, FontWeight.Bold, 1.5.sp, f)
         input.subs[i]?.let {
-            drawCentered(text, it, pos + Offset(0f, radius + size.width * 0.095f), size.width * 0.028f, label.copy(alpha = f * 0.7f))
+            drawCentered(text, it, pos + Offset(0f, radius + size.width * 0.095f), size.width * 0.028f, label, FontWeight.Bold, alpha = f)
         }
     }
 }
 
+/** Text with a bold ink outline, drawn as a stroked pass under the fill. */
 private fun DrawScope.drawCentered(
     measurer: TextMeasurer, string: String, center: Offset, sizePx: Float, color: Color,
-    weight: FontWeight = FontWeight.Normal, letterSpacing: TextUnit = TextUnit.Unspecified,
+    weight: FontWeight = FontWeight.Normal, letterSpacing: TextUnit = TextUnit.Unspecified, alpha: Float = 1f,
 ) {
-    val layout = measurer.measure(
-        string,
-        TextStyle(
-            fontSize = sizePx.toSp(), color = color, fontWeight = weight, letterSpacing = letterSpacing,
-            shadow = Shadow(Color.Black.copy(alpha = 0.5f), blurRadius = 6f),
-        ),
+    fun style(c: Color, draw: androidx.compose.ui.graphics.drawscope.DrawStyle? = null) = TextStyle(
+        fontSize = sizePx.toSp(), color = c, fontWeight = weight, letterSpacing = letterSpacing,
+        drawStyle = draw,
     )
-    drawText(layout, topLeft = center - Offset(layout.size.width / 2f, layout.size.height / 2f))
+    val fill = measurer.measure(string, style(color))
+    val topLeft = center - Offset(fill.size.width / 2f, fill.size.height / 2f)
+    val outline = measurer.measure(string, style(Ink.copy(alpha = alpha), Stroke(width = sizePx * 0.13f, join = androidx.compose.ui.graphics.StrokeJoin.Round)))
+    drawText(outline, topLeft = topLeft)
+    drawText(fill, topLeft = topLeft)
 }
 
 private fun DrawScope.drawPlanet(spin: Float, accent: Color, c: Offset, r: Float) {
-    val ocean = lerp(Color(0xFF1B3A6B), accent, 0.25f)
-    // Atmosphere glow
-    drawCircle(Brush.radialGradient(0.78f to Color.Transparent, 0.86f to accent.copy(alpha = 0.35f), 1f to Color.Transparent, center = c, radius = r * CoronaScale), r * CoronaScale, c)
+    // Corona: two flat, hard-edged rings.
+    drawCircle(accent.copy(alpha = 0.16f), r * CoronaScale, c)
+    drawCircle(accent.copy(alpha = 0.3f), r * 1.17f, c)
+    drawCircle(Ink, r * 1.04f, c)
 
-    val disc = Path().apply { addOval(androidx.compose.ui.geometry.Rect(c, r)) }
+    val ocean = lerp(Color(0xFF2F6BC0), accent, 0.3f)
+    val disc = Path().apply { addOval(Rect(c, r)) }
     clipPath(disc) {
-        drawCircle(Brush.verticalGradient(listOf(lerp(ocean, Color.White, 0.15f), ocean, lerp(ocean, Color.Black, 0.4f)), c.y - r, c.y + r), r, c)
-        // Latitude bands
+        drawCircle(ocean, r, c)
+        // Latitude bands: alternating flat stripes.
         for (k in -4..4) {
-            val y = c.y + k * r * 0.22f
-            drawRect(accent.copy(alpha = 0.10f + 0.04f * (k and 1)), Offset(c.x - r, y), androidx.compose.ui.geometry.Size(2 * r, r * 0.09f))
+            if (k and 1 == 0) continue
+            drawRect(lerp(ocean, accent, 0.45f), Offset(c.x - r, c.y + k * r * 0.22f - r * 0.07f), androidx.compose.ui.geometry.Size(2 * r, r * 0.14f))
         }
-        // Surface features sliding around the sphere
+        // Surface features sliding around the sphere, flat with an ink edge.
         for (b in blobs) {
             val lon = b.lon + spin
             val depth = cos(lon)
-            if (depth <= 0f) continue
+            if (depth <= 0.1f) continue
             val x = c.x + r * cos(b.lat) * sin(lon)
             val y = c.y + r * sin(b.lat)
             val w = r * b.size * 2f * (0.35f + 0.65f * depth)
             val h = r * b.size * 1.2f
-            drawOval(lerp(accent, Color.White, 0.3f + 0.4f * b.tone).copy(alpha = 0.45f * depth), Offset(x - w, y - h), androidx.compose.ui.geometry.Size(w * 2, h * 2))
+            val topLeft = Offset(x - w, y - h)
+            val sz = androidx.compose.ui.geometry.Size(w * 2, h * 2)
+            drawOval(lerp(accent, Color.White, 0.55f + 0.25f * b.tone), topLeft, sz)
+            drawOval(Ink.copy(alpha = 0.55f), topLeft, sz, style = Stroke(r * 0.02f))
         }
-        // Light from the upper left
-        drawCircle(
-            Brush.radialGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.75f)), c + Offset(-r * 0.35f, -r * 0.35f), r * 1.5f),
-            r, c,
-        )
+        // Two hard shadow tones toward the lower right (light from the upper left).
+        val lit1 = Path().apply { addOval(Rect(c + Offset(-r * 0.2f, -r * 0.2f), r)) }
+        clipPath(lit1, ClipOp.Difference) { drawCircle(Color.Black.copy(alpha = 0.3f), r, c) }
+        val lit2 = Path().apply { addOval(Rect(c + Offset(-r * 0.5f, -r * 0.5f), r)) }
+        clipPath(lit2, ClipOp.Difference) { drawCircle(Color.Black.copy(alpha = 0.25f), r, c) }
+        // Specular highlight.
+        drawOval(Color.White.copy(alpha = 0.55f), c + Offset(-r * 0.62f, -r * 0.62f), androidx.compose.ui.geometry.Size(r * 0.3f, r * 0.17f))
     }
-    drawCircle(accent.copy(alpha = 0.5f), r, c, style = Stroke(2f))
+    drawCircle(Ink, r, c, style = Stroke(r * 0.045f))
 }

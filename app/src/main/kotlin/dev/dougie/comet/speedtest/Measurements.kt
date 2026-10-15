@@ -37,7 +37,7 @@ fun toMbps(bytes: Long, millis: Long): Double =
 class ThroughputMeter(
     private val warmupMs: Long,
     private val windowMs: Long = 250,
-    private val liveWindowMs: Long = 500,
+    private val liveWindowMs: Long = 1000,
 ) {
     private val times = ArrayList<Long>()
     private val totals = ArrayList<Long>()
@@ -47,10 +47,17 @@ class ThroughputMeter(
         totals += totalBytes
     }
 
-    /** Smoothed instantaneous speed over the most recent [liveWindowMs], for the UI. */
+    /**
+     * Speed for the UI. During warm-up it is the rate over the last [liveWindowMs]; once warm-up
+     * is over it is the running average since then, so the figure settles instead of jumping.
+     */
     fun liveMbps(): Double {
         if (times.size < 2) return 0.0
         val last = times.lastIndex
+        val first = times.indexOfFirst { it >= warmupMs }
+        if (first in 0 until last && times[last] - times[first] >= liveWindowMs / 2) {
+            return toMbps(totals[last] - totals[first], times[last] - times[first])
+        }
         var i = last - 1
         while (i > 0 && times[last] - times[i] < liveWindowMs) i--
         return toMbps(totals[last] - totals[i], times[last] - times[i])

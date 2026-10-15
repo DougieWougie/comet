@@ -41,11 +41,20 @@ class MeasurementsTest {
         assertNull(ThroughputMeter(2_000).result())
     }
 
-    @Test fun liveSpeedUsesRecentWindow() {
-        val m = ThroughputMeter(0)
+    @Test fun liveSpeedUsesRecentWindowDuringWarmup() {
+        val m = ThroughputMeter(warmupMs = 5_000)
         m.record(0, 0)
         m.record(1_000, 1_250_000) // 10 Mbps
-        m.record(1_500, 1_250_000 + 6_250_000) // 100 Mbps over the last 500ms
+        m.record(2_000, 1_250_000 + 12_500_000) // 100 Mbps over the last second
         assertEquals(100.0, m.liveMbps(), 0.1)
+    }
+
+    @Test fun liveSpeedIsRunningAverageAfterWarmup() {
+        val m = ThroughputMeter(warmupMs = 1_000)
+        m.record(0, 0)
+        m.record(1_000, 0)
+        m.record(2_000, 1_250_000) // 10 Mbps
+        m.record(3_000, 1_250_000 + 12_500_000) // 100 Mbps burst
+        assertEquals(55.0, m.liveMbps(), 0.1)
     }
 }

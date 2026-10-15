@@ -65,4 +65,4 @@ in Settings. The speed-test server necessarily sees your IP too.
 
 ## Licence
 
-[GNU General Public License v2](LICENSE).
+[GNU General Public License v3](LICENSE).

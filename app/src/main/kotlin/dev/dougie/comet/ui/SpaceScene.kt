@@ -78,6 +78,8 @@ class SceneInput(
     val fly: State<Float>,
     /** VPN ship position: 0 = off-screen left, 1 = hovering, 2 = off-screen right. */
     val ship: State<Float>,
+    /** 0 = ship hovers by the planet, 1 = it has dropped down to hover over the results. */
+    val shipDown: State<Float>,
 )
 
 private val MoonLabels = listOf("PING", "DOWNLOAD", "UPLOAD")
@@ -126,7 +128,7 @@ fun DrawScope.drawSpace(clock: SceneClock, input: SceneInput, text: TextMeasurer
     for (i in 0..2) if (!moonInFront(clock, input, i)) drawMoon(i, clock, input, text, planetCenter, planetRadius, colors)
     drawPlanet(clock.planetSpin.floatValue, accent, planetCenter, planetRadius)
     for (i in 0..2) if (moonInFront(clock, input, i)) drawMoon(i, clock, input, text, planetCenter, planetRadius, colors)
-    drawShip(input.ship.value, clock.planetSpin.floatValue, text, planetCenter, planetRadius, dark)
+    drawShip(input.ship.value, input.shipDown.value, clock.planetSpin.floatValue, text, planetCenter, planetRadius, dark)
 }
 
 private fun moonInFront(clock: SceneClock, input: SceneInput, i: Int) = landed(input, i) > 0f || sin(clock.orbit[i].floatValue) > 0f
@@ -272,23 +274,26 @@ private fun DrawScope.drawCentered(
     drawText(layout, topLeft = center - Offset(layout.size.width / 2f, layout.size.height / 2f))
 }
 
-/** A small flying saucer that hovers above the planet while a VPN is carrying the test. */
-private fun DrawScope.drawShip(p: Float, t: Float, text: TextMeasurer, c: Offset, r: Float, dark: Boolean) {
+/** A small flying saucer that hovers by the planet while a VPN carries the test, then drops to hover over the results. */
+private fun DrawScope.drawShip(p: Float, down: Float, t: Float, text: TextMeasurer, c: Offset, r: Float, dark: Boolean) {
     if (p <= 0f || p >= 2f) return
-    val hover = Offset(c.x + r * 1.2f, c.y - r * 1.8f)
+    val testHover = Offset(c.x + r * 1.2f, c.y - r * 1.8f)
+    val resultsHover = Offset(size.width / 2f, size.height * SlotY - size.width * 0.25f)
+    val hover = androidx.compose.ui.geometry.lerp(testHover, resultsHover, down)
+    val still = p == 1f && (down <= 0f || down >= 1f)
     val start = Offset(-r, hover.y - r * 0.6f)
     val end = Offset(size.width + r, hover.y - r * 0.9f)
     val pos = if (p <= 1f) androidx.compose.ui.geometry.lerp(start, hover, p) else androidx.compose.ui.geometry.lerp(hover, end, p - 1f)
-    val bob = if (p == 1f) sin(t * 5f) * r * 0.05f else 0f
+    val bob = if (still) sin(t * 5f) * r * 0.05f else 0f
     val s = r * 0.3f
     // Gentle wobble while hovering; leans into the flight otherwise.
-    val tilt = if (p < 1f) -8f * (1f - p) else if (p == 1f) sin(t * 3f) * 4f else -10f * (p - 1f)
+    val tilt = if (p < 1f) -8f * (1f - p) else if (still) sin(t * 3f) * 4f else -10f * (p - 1f)
     val ink = s * 0.1f
 
     translate(pos.x, pos.y + bob) {
         rotate(tilt, Offset.Zero) {
             // Speed streaks trailing behind while it is flying in or out.
-            if (p != 1f) {
+            if (!still) {
                 for ((k, dy) in listOf(-0.25f, 0.05f, 0.3f).withIndex()) {
                     val len = s * (1.2f + 0.5f * k)
                     drawLine(Color.White.copy(alpha = 0.8f), Offset(-s * 1.5f, s * dy), Offset(-s * 1.5f - len, s * dy), strokeWidth = s * 0.06f)

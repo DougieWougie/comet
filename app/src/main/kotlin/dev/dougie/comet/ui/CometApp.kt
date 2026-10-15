@@ -95,7 +95,8 @@ fun CometApp(vm: CometViewModel, dark: Boolean) {
     val fly = animateFloatAsState(if (test.phase == Phase.Done) 1f else 0f, tween(1600, easing = FastOutSlowInEasing), label = "fly")
     // VPN ship: 0 = off-screen left, 1 = hovering by the planet, 2 = gone off-screen right.
     val ship = remember { Animatable(0f) }
-    val shipWanted = network?.vpn == true && test.running
+    val shipWanted = network?.vpn == true && (test.running || test.phase == Phase.Done)
+    val shipDown = animateFloatAsState(if (test.phase == Phase.Done) 1f else 0f, tween(1600, easing = FastOutSlowInEasing), label = "shipDown")
     LaunchedEffect(shipWanted) {
         if (shipWanted) {
             ship.snapTo(0f)
@@ -120,6 +121,7 @@ fun CometApp(vm: CometViewModel, dark: Boolean) {
         moonScale = moonScale,
         fly = fly,
         ship = ship.asState(),
+        shipDown = shipDown,
     )
     val textMeasurer = rememberTextMeasurer()
 

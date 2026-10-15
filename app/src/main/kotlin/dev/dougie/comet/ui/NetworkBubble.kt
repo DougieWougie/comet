@@ -71,12 +71,13 @@ fun NetworkBubble(
     Surface(
         modifier = modifier
             .widthIn(max = 360.dp)
-            .animateContentSize()
-            // Hard comic-style drop shadow.
+            // Hard comic-style drop shadow. It must sit outside animateContentSize, which clips
+            // its content to the animated bounds and would cut the offset shadow off square.
             .drawBehind {
                 val corner = (if (expanded) 24.dp else 28.dp).toPx()
                 drawRoundRect(Color(0xFF070A1C), Offset(5.dp.toPx(), 5.dp.toPx()), size, CornerRadius(corner))
             }
+            .animateContentSize()
             .semantics { stateDescription = if (expanded) "Expanded" else "Collapsed" },
         shape = RoundedCornerShape(if (expanded) 24.dp else 28.dp),
         color = if (MaterialTheme.colorScheme.background.luminance() < 0.5f) Color(0xFF1B2552) else MaterialTheme.colorScheme.surface,

@@ -70,8 +70,8 @@ fun NetworkBubble(
             .animateContentSize()
             .semantics { stateDescription = if (expanded) "Expanded" else "Collapsed" },
         shape = RoundedCornerShape(if (expanded) 24.dp else 28.dp),
-        color = Color(0xF210162E),
-        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.14f)),
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.14f)),
     ) {
         Column(Modifier.clickable(role = Role.Button, onClickLabel = if (expanded) "Collapse network info" else "Expand network info") { expanded = !expanded }) {
             Row(Modifier.padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -81,9 +81,9 @@ fun NetworkBubble(
                 )
                 Column(Modifier.padding(start = 10.dp)) {
                     Text(network?.headline ?: "Network", fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
-                    if (subtitle != null) Text(subtitle, fontSize = 12.sp, color = Color.White.copy(alpha = 0.65f))
+                    if (subtitle != null) Text(subtitle, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f))
                 }
-                Text(if (expanded) "  ▴" else "  ▾", color = Color.White.copy(alpha = 0.6f))
+                Text(if (expanded) "  ▴" else "  ▾", color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
             }
             if (expanded && network != null) {
                 Column(
@@ -108,7 +108,7 @@ private fun Details(
     onLookUpPublicIp: () -> Unit,
 ) {
     if (n.transport == Transport.None) {
-        Text("No connection", color = Color.White.copy(alpha = 0.7f))
+        Text("No connection", color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f))
         return
     }
 
@@ -162,7 +162,7 @@ private fun PublicIpSection(state: PublicIpState, onLookUp: () -> Unit) {
         PublicIpState.Idle, is PublicIpState.Failed -> {
             Text(
                 "Looking this up sends your IP address to ${PublicIpLookup.HOST}, a third party.",
-                fontSize = 12.sp, color = Color.White.copy(alpha = 0.65f),
+                fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f),
             )
             if (state is PublicIpState.Failed) Text(state.message, fontSize = 12.sp, color = MaterialTheme.colorScheme.error)
             TextButton(onClick = onLookUp) { Text("Look up public IP") }
@@ -185,7 +185,7 @@ private fun InfoRow(label: String, value: String) = InfoRow(label) { Text(value,
 @Composable
 private fun InfoRow(label: String, value: @Composable () -> Unit) {
     Row(Modifier.padding(vertical = 1.dp), verticalAlignment = Alignment.Top) {
-        Text(label, fontSize = 13.sp, color = Color.White.copy(alpha = 0.6f), modifier = Modifier.width(112.dp))
+        Text(label, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f), modifier = Modifier.width(112.dp))
         value()
     }
 }

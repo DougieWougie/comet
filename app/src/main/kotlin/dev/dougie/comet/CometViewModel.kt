@@ -40,6 +40,9 @@ class CometViewModel(app: Application) : AndroidViewModel(app) {
     private val _serverUrl = MutableStateFlow(settings.serverUrl)
     val serverUrl: StateFlow<String> = _serverUrl
 
+    private val _darkMode = MutableStateFlow(settings.darkMode)
+    val darkMode: StateFlow<Boolean?> = _darkMode
+
     private val _publicIp = MutableStateFlow<PublicIpState>(PublicIpState.Idle)
     val publicIp: StateFlow<PublicIpState> = _publicIp
 
@@ -79,6 +82,11 @@ class CometViewModel(app: Application) : AndroidViewModel(app) {
     private fun stopTest() {
         testJob?.cancel()
         _test.value = _test.value.copy(phase = Phase.Idle, liveMbps = 0.0, progress = 0f)
+    }
+
+    fun setDarkMode(dark: Boolean) {
+        settings.darkMode = dark
+        _darkMode.value = dark
     }
 
     fun setServerUrl(url: String) {

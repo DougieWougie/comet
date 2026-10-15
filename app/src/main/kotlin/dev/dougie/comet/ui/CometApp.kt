@@ -37,6 +37,8 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -51,7 +53,7 @@ private const val PlanetRadiusFraction = 0.19f
 private const val PlanetCenterFraction = 0.46f
 
 @Composable
-fun CometApp(vm: CometViewModel) {
+fun CometApp(vm: CometViewModel, dark: Boolean) {
     val test by vm.test.collectAsStateWithLifecycle()
     val network by vm.network.collectAsStateWithLifecycle()
     val publicIp by vm.publicIp.collectAsStateWithLifecycle()
@@ -79,6 +81,7 @@ fun CometApp(vm: CometViewModel) {
         activeMoon = activeMoon,
         moonDone = booleanArrayOf(test.pingMs != null && activeMoon != 0, test.downloadMbps != null && activeMoon != 1, test.uploadMbps != null && activeMoon != 2),
         moonProgress = test.progress,
+        dark = dark,
     )
 
     BoxWithConstraints(Modifier.fillMaxSize()) {
@@ -106,9 +109,9 @@ fun CometApp(vm: CometViewModel) {
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                MoonStat(0, "PING", test.pingMs?.let { format(it) }, "ms", test.jitterMs?.let { "jitter ${format(it)} ms" })
-                MoonStat(1, "DOWNLOAD", test.downloadMbps?.let { format(it) }, "Mbps", null)
-                MoonStat(2, "UPLOAD", test.uploadMbps?.let { format(it) }, "Mbps", null)
+                MoonStat(0, dark, "PING", test.pingMs?.let { format(it) }, "ms", test.jitterMs?.let { "jitter ${format(it)} ms" })
+                MoonStat(1, dark, "DOWNLOAD", test.downloadMbps?.let { format(it) }, "Mbps", null)
+                MoonStat(2, dark, "UPLOAD", test.uploadMbps?.let { format(it) }, "Mbps", null)
             }
             if (test.phase == Phase.Failed) {
                 Text(test.error ?: "Test failed", color = MaterialTheme.colorScheme.error, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 16.dp))
@@ -130,8 +133,16 @@ fun CometApp(vm: CometViewModel) {
                 onLookUpPublicIp = vm::lookUpPublicIp,
                 modifier = Modifier.weight(1f, fill = false),
             )
-            IconButton(onClick = { showSettings = true }) {
-                Icon(Icons.Default.Settings, contentDescription = "Settings", tint = Color.White.copy(alpha = 0.8f))
+            Row {
+                IconButton(onClick = { vm.setDarkMode(!dark) }) {
+                    Text(
+                        if (dark) "☀" else "☾", fontSize = 22.sp,
+                        modifier = Modifier.semantics { contentDescription = if (dark) "Switch to light mode" else "Switch to dark mode" },
+                    )
+                }
+                IconButton(onClick = { showSettings = true }) {
+                    Icon(Icons.Default.Settings, contentDescription = "Settings", tint = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.8f))
+                }
             }
         }
     }
@@ -160,12 +171,12 @@ private fun PlanetLabel(test: TestState) {
 }
 
 @Composable
-private fun MoonStat(moon: Int, label: String, value: String?, unit: String, sub: String?) {
+private fun MoonStat(moon: Int, dark: Boolean, label: String, value: String?, unit: String, sub: String?) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(label, fontSize = 11.sp, letterSpacing = 1.5.sp, color = MoonColors[moon])
+        Text(label, fontSize = 11.sp, letterSpacing = 1.5.sp, color = moonColors(dark)[moon])
         Text(value ?: "—", fontSize = 26.sp, fontWeight = FontWeight.SemiBold)
-        Text(unit, fontSize = 12.sp, color = Color.White.copy(alpha = 0.6f))
-        Text(sub ?: " ", fontSize = 11.sp, color = Color.White.copy(alpha = 0.5f))
+        Text(unit, fontSize = 12.sp, color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f))
+        Text(sub ?: " ", fontSize = 11.sp, color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.55f))
     }
 }
 

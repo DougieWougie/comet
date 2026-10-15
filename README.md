@@ -4,6 +4,12 @@ Network speed test for Android, themed as a comet rushing through space. The cur
 rotating planet; ping, download and upload are three moons orbiting it. Tap the planet to start
 or stop. Tap the bubble at the top left for network details.
 
+<p align="center">
+  <img src="docs/screenshots/testing.png" width="240" alt="Upload test in progress">
+  <img src="docs/screenshots/results-dark.png" width="240" alt="Results, dark mode">
+  <img src="docs/screenshots/results-light.png" width="240" alt="Results, light mode">
+</p>
+
 ## Layout
 
 - `app/` – Android app (Kotlin, Compose, minSdk 31)
@@ -56,3 +62,7 @@ in Settings. The speed-test server necessarily sees your IP too.
 
 - With a VPN as the default network, Android reports no `WifiInfo`, so Wi-Fi details are hidden.
 - On 5G NSA, `TelephonyManager` can report "4G".
+
+## Licence
+
+[GNU General Public License v2](LICENSE).

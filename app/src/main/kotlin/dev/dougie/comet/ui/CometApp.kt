@@ -3,7 +3,11 @@ package dev.dougie.comet.ui
 import android.Manifest
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -75,14 +79,33 @@ fun CometApp(vm: CometViewModel, dark: Boolean) {
         Phase.Upload -> 2
         else -> -1
     }
+    val moonDone = booleanArrayOf(test.pingMs != null && activeMoon != 0, test.downloadMbps != null && activeMoon != 1, test.uploadMbps != null && activeMoon != 2)
     val clock = rememberSceneClock(energyForMbps(test.liveMbps), activeMoon)
+    val moonScale = List(3) { i ->
+        val target = when {
+            activeMoon == i -> MoonScaleActive
+            moonDone[i] -> MoonScaleDone
+            else -> MoonScaleIdle
+        }
+        animateFloatAsState(target, tween(450), label = "moonScale$i")
+    }
+    val fly = animateFloatAsState(if (test.phase == Phase.Done) 1f else 0f, tween(1600, easing = FastOutSlowInEasing), label = "fly")
     val input = SceneInput(
         energy = energyForMbps(test.liveMbps),
         activeMoon = activeMoon,
-        moonDone = booleanArrayOf(test.pingMs != null && activeMoon != 0, test.downloadMbps != null && activeMoon != 1, test.uploadMbps != null && activeMoon != 2),
+        moonDone = moonDone,
         moonProgress = test.progress,
         dark = dark,
+        values = listOf(
+            test.pingMs?.let(::format) ?: if (activeMoon == 0) "…" else null,
+            if (activeMoon == 1) format(test.liveMbps) else test.downloadMbps?.let(::format),
+            if (activeMoon == 2) format(test.liveMbps) else test.uploadMbps?.let(::format),
+        ),
+        subs = listOf(test.jitterMs?.let { "jitter ${format(it)} ms" }, null, null),
+        moonScale = moonScale,
+        fly = fly,
     )
+    val textMeasurer = rememberTextMeasurer()
 
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val radiusDp = minOf(maxWidth, maxHeight) * PlanetRadiusFraction
@@ -90,7 +113,7 @@ fun CometApp(vm: CometViewModel, dark: Boolean) {
 
         Canvas(Modifier.fillMaxSize()) {
             val r = minOf(size.width, size.height) * PlanetRadiusFraction
-            drawSpace(clock, input, r, Offset(size.width / 2, size.height * PlanetCenterFraction))
+            drawSpace(clock, input, textMeasurer, r, Offset(size.width / 2, size.height * PlanetCenterFraction))
         }
 
         Box(
@@ -108,11 +131,6 @@ fun CometApp(vm: CometViewModel, dark: Boolean) {
             Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(horizontal = 20.dp, vertical = 36.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                MoonStat(0, dark, "PING", test.pingMs?.let { format(it) }, "ms", test.jitterMs?.let { "jitter ${format(it)} ms" })
-                MoonStat(1, dark, "DOWNLOAD", test.downloadMbps?.let { format(it) }, "Mbps", null)
-                MoonStat(2, dark, "UPLOAD", test.uploadMbps?.let { format(it) }, "Mbps", null)
-            }
             if (test.phase == Phase.Failed) {
                 Text(test.error ?: "Test failed", color = MaterialTheme.colorScheme.error, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 16.dp))
             }
@@ -167,16 +185,6 @@ private fun PlanetLabel(test: TestState) {
         Text(caption, fontSize = 12.sp, letterSpacing = 2.sp, color = Color.White.copy(alpha = 0.85f), style = androidx.compose.ui.text.TextStyle(shadow = shadow))
         Text(value, fontSize = 44.sp, fontWeight = FontWeight.Bold, color = Color.White, style = androidx.compose.ui.text.TextStyle(shadow = shadow))
         Text(unit, fontSize = 13.sp, color = Color.White.copy(alpha = 0.85f), style = androidx.compose.ui.text.TextStyle(shadow = shadow))
-    }
-}
-
-@Composable
-private fun MoonStat(moon: Int, dark: Boolean, label: String, value: String?, unit: String, sub: String?) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(label, fontSize = 11.sp, letterSpacing = 1.5.sp, color = moonColors(dark)[moon])
-        Text(value ?: "—", fontSize = 26.sp, fontWeight = FontWeight.SemiBold)
-        Text(unit, fontSize = 12.sp, color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f))
-        Text(sub ?: " ", fontSize = 11.sp, color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.55f))
     }
 }
 

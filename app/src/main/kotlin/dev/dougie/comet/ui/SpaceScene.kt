@@ -1,6 +1,14 @@
 package dev.dougie.comet.ui
 
+import androidx.compose.runtime.State
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Shadow
+import androidx.compose.ui.text.TextMeasurer
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.drawText
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.TextUnit
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Paint
@@ -60,9 +68,31 @@ class SceneInput(
     val moonDone: BooleanArray,
     val moonProgress: Float,
     val dark: Boolean,
+    /** Text shown on each moon (null = none yet), and a smaller line shown under it once landed. */
+    val values: List<String?>,
+    val subs: List<String?>,
+    /** Animated radius of each moon, in planet radii. Read only while drawing. */
+    val moonScale: List<State<Float>>,
+    /** 0 = moons in orbit, 1 = all three landed at the bottom as the results. */
+    val fly: State<Float>,
 )
 
-fun DrawScope.drawSpace(clock: SceneClock, input: SceneInput, planetRadius: Float, planetCenter: Offset) {
+private val MoonLabels = listOf("PING", "DOWNLOAD", "UPLOAD")
+private val MoonUnits = listOf("ms", "Mbps", "Mbps")
+const val MoonScaleIdle = 0.13f
+const val MoonScaleDone = 0.24f
+const val MoonScaleActive = 0.34f
+
+private const val SlotY = 0.8f
+private const val SlotRadiusFraction = 0.095f
+
+/** Moons leave one after another; returns 0..1 eased progress of moon [i]'s flight. */
+private fun landed(input: SceneInput, i: Int): Float {
+    val t = ((input.fly.value - i * 0.12f) / 0.76f).coerceIn(0f, 1f)
+    return t * t * (3f - 2f * t)
+}
+
+fun DrawScope.drawSpace(clock: SceneClock, input: SceneInput, text: TextMeasurer, planetRadius: Float, planetCenter: Offset) {
     val dark = input.dark
     drawRect(Brush.verticalGradient(if (dark) listOf(Space, SpaceDeep, Space) else listOf(Color(0xFFC4DBFF), Color(0xFFEAF2FF), Color(0xFFC4DBFF))))
     drawStars(clock.starScroll.floatValue, input.energy, if (dark) Color.White else Color(0xFF3B4A8A))
@@ -83,12 +113,12 @@ fun DrawScope.drawSpace(clock: SceneClock, input: SceneInput, planetRadius: Floa
     val colors = moonColors(dark)
     val accent = if (input.activeMoon >= 0) colors[input.activeMoon] else colors[1]
     for (i in 0..2) drawOrbit(i, planetCenter, planetRadius, dark)
-    for (i in 0..2) if (!moonInFront(clock, i)) drawMoon(i, clock, input, planetCenter, planetRadius, colors)
+    for (i in 0..2) if (!moonInFront(clock, input, i)) drawMoon(i, clock, input, text, planetCenter, planetRadius, colors)
     drawPlanet(clock.planetSpin.floatValue, accent, planetCenter, planetRadius)
-    for (i in 0..2) if (moonInFront(clock, i)) drawMoon(i, clock, input, planetCenter, planetRadius, colors)
+    for (i in 0..2) if (moonInFront(clock, input, i)) drawMoon(i, clock, input, text, planetCenter, planetRadius, colors)
 }
 
-private fun moonInFront(clock: SceneClock, i: Int) = sin(clock.orbit[i].floatValue) > 0f
+private fun moonInFront(clock: SceneClock, input: SceneInput, i: Int) = landed(input, i) > 0f || sin(clock.orbit[i].floatValue) > 0f
 
 private fun DrawScope.drawStars(scroll: Float, energy: Float, tint: Color) {
     val streak = size.width * 0.05f * energy
@@ -156,29 +186,66 @@ private fun moonPosition(clock: SceneClock, i: Int, c: Offset, r: Float): Offset
     return Offset(c.x + lx * cos(t) - ly * sin(t), c.y + lx * sin(t) + ly * cos(t))
 }
 
-private fun DrawScope.drawMoon(i: Int, clock: SceneClock, input: SceneInput, c: Offset, r: Float, colors: List<Color>) {
-    val pos = moonPosition(clock, i, c, r)
+private fun DrawScope.drawMoon(
+    i: Int, clock: SceneClock, input: SceneInput, text: TextMeasurer, c: Offset, r: Float, colors: List<Color>,
+) {
+    val f = landed(input, i)
+    val slot = Offset(size.width * (1f / 6f + i / 3f), size.height * SlotY)
+    val slotRadius = size.width * SlotRadiusFraction
+    val orbitRadius = r * input.moonScale[i].value
+    val pos = moonPosition(clock, i, c, r).let { Offset(it.x + (slot.x - it.x) * f, it.y + (slot.y - it.y) * f) }
+    val radius = orbitRadius + (slotRadius - orbitRadius) * f
+
     val active = input.activeMoon == i
     val lit = active || input.moonDone[i]
     val base = colors[i]
-    val radius = r * (if (active) 0.17f else 0.13f)
     val body = if (lit) base else lerp(base, Color(0xFF3A4060), 0.75f)
 
-    if (lit) drawCircle(Brush.radialGradient(listOf(base.copy(alpha = if (active) 0.55f else 0.3f), Color.Transparent), pos, radius * 3.2f), radius * 3.2f, pos)
+    if (lit) {
+        val glowRadius = radius * (3.2f - 0.8f * f)
+        val glowAlpha = (if (active) 0.55f else 0.3f) * (1f - 0.5f * f)
+        drawCircle(Brush.radialGradient(listOf(base.copy(alpha = glowAlpha), Color.Transparent), pos, glowRadius), glowRadius, pos)
+    }
     drawCircle(body, radius, pos)
     // Terminator shading
     drawCircle(
-        Brush.radialGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.55f)), pos + Offset(-radius * 0.4f, -radius * 0.4f), radius * 1.5f),
+        Brush.radialGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.45f)), pos + Offset(-radius * 0.4f, -radius * 0.4f), radius * 1.5f),
         radius, pos,
     )
     if (active) {
         drawArc(
             Color.White, -90f, 360f * input.moonProgress, false,
-            topLeft = pos - Offset(radius * 1.5f, radius * 1.5f),
-            size = androidx.compose.ui.geometry.Size(radius * 3f, radius * 3f),
+            topLeft = pos - Offset(radius * 1.25f, radius * 1.25f),
+            size = androidx.compose.ui.geometry.Size(radius * 2.5f, radius * 2.5f),
             style = Stroke(3f, cap = StrokeCap.Round),
         )
     }
+
+    input.values[i]?.let { value ->
+        drawCentered(text, value, pos + Offset(0f, -radius * 0.12f), radius * 0.62f, Color.White, FontWeight.Bold)
+        drawCentered(text, MoonUnits[i], pos + Offset(0f, radius * 0.45f), radius * 0.26f, Color.White.copy(alpha = 0.85f))
+    }
+    if (f > 0f) {
+        val label = base.copy(alpha = f)
+        drawCentered(text, MoonLabels[i], pos + Offset(0f, radius + size.width * 0.045f), size.width * 0.03f, label, letterSpacing = 1.5.sp)
+        input.subs[i]?.let {
+            drawCentered(text, it, pos + Offset(0f, radius + size.width * 0.095f), size.width * 0.028f, label.copy(alpha = f * 0.7f))
+        }
+    }
+}
+
+private fun DrawScope.drawCentered(
+    measurer: TextMeasurer, string: String, center: Offset, sizePx: Float, color: Color,
+    weight: FontWeight = FontWeight.Normal, letterSpacing: TextUnit = TextUnit.Unspecified,
+) {
+    val layout = measurer.measure(
+        string,
+        TextStyle(
+            fontSize = sizePx.toSp(), color = color, fontWeight = weight, letterSpacing = letterSpacing,
+            shadow = Shadow(Color.Black.copy(alpha = 0.5f), blurRadius = 6f),
+        ),
+    )
+    drawText(layout, topLeft = center - Offset(layout.size.width / 2f, layout.size.height / 2f))
 }
 
 private fun DrawScope.drawPlanet(spin: Float, accent: Color, c: Offset, r: Float) {

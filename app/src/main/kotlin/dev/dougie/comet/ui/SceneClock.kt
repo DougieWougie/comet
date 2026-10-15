@@ -74,4 +74,4 @@ fun rememberSceneClock(energy: Float, activeMoon: Int): SceneClock {
     return clock
 }
 
-fun energyForMbps(mbps: Double): Float = (log10(1.0 + mbps) / 3.0).toFloat().coerceIn(0f, 1f)
+fun energyForMbps(mbps: Double): Float = (log10(1.0 + mbps.coerceAtLeast(0.0)) / 3.0).toFloat().coerceIn(0f, 1f)

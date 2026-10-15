@@ -57,4 +57,29 @@ class MeasurementsTest {
         m.record(3_000, 1_250_000 + 12_500_000) // 100 Mbps burst
         assertEquals(55.0, m.liveMbps(), 0.1)
     }
+
+    @Test fun jitterOfFewerThanTwoSamplesIsZero() {
+        assertEquals(0.0, Stats.jitter(emptyList()), 1e-9)
+        assertEquals(0.0, Stats.jitter(listOf(12.0)), 1e-9)
+    }
+
+    @Test fun trimmedMeanOfSingleValueIsThatValue() {
+        assertEquals(7.0, Stats.trimmedMean(listOf(7.0)), 1e-9)
+    }
+
+    @Test fun toMbpsConvertsBytesPerMillisecond() {
+        assertEquals(8.0, toMbps(1_000_000, 1_000), 1e-9)
+        assertEquals(0.0, toMbps(1_000_000, 0), 1e-9)
+    }
+
+    @Test fun meterIgnoresStallsAndBurstsInResult() {
+        val m = ThroughputMeter(warmupMs = 0)
+        var bytes = 0L
+        for (t in 250..5_000 step 250) {
+            // 10 Mbps steadily, with one stalled window and one 10x burst.
+            bytes += when (t) { 2_000 -> 0L; 3_000 -> 3_125_000L; else -> 312_500L }
+            m.record(t.toLong(), bytes)
+        }
+        assertEquals(10.0, m.result()!!, 1.5)
+    }
 }

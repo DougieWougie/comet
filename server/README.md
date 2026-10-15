@@ -6,7 +6,7 @@ image pinned.
 
 ## Deploy
 
-1. DNS: add an `A` record for your speed-test hostname, e.g. `speed.example.com`.
+1. DNS: add an `A` record for `comet.dougals.me`.
 2. Copy this folder to the VPS as `/opt/docker/comet-speedtest/`.
 3. Start it (the `proxy` network must already exist: `docker network create proxy`):
 
@@ -18,10 +18,10 @@ image pinned.
 
 4. Add the proxy host in NPM as described in [nginx-proxy-manager.md](nginx-proxy-manager.md).
    The custom nginx config there is required for accurate results.
-5. Check it, then enter `https://speed.example.com/` in the app's Settings:
+5. Check it, then enter `https://comet.dougals.me/` in the app's Settings:
 
    ```sh
-   curl -s https://speed.example.com/getIP.php
+   curl -s https://comet.dougals.me/getIP.php
    ```
 
 ## Maintenance

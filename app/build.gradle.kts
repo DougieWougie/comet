@@ -3,8 +3,8 @@ plugins {
     alias(libs.plugins.kotlin.compose)
 }
 
-// Default LibreSpeed backend; override with -PcometServerUrl=https://speed.example.com/
-val defaultServerUrl = providers.gradleProperty("cometServerUrl").orElse("https://speedtest.example.com/")
+// Default LibreSpeed backend; override with -PcometServerUrl=https://comet.dougals.me/
+val defaultServerUrl = providers.gradleProperty("cometServerUrl").orElse("https://comet.dougals.me/")
 
 android {
     namespace = "dev.dougie.comet"

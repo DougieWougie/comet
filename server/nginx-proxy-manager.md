@@ -4,7 +4,7 @@ Create a Proxy Host (the DNS record must already resolve):
 
 | Field | Value |
 |---|---|
-| Domain Names | `speed.example.com` |
+| Domain Names | `comet.dougals.me` |
 | Scheme / Forward Host / Port | `http` / `comet-speedtest` / `8080` |
 | Block Common Exploits | on |
 | Websockets Support | off (not needed) |
@@ -23,4 +23,4 @@ proxy_read_timeout 120s;
 gzip off;
 ```
 
-Enter `https://speed.example.com/` as the server in the Comet app's settings.
+Enter `https://comet.dougals.me/` as the server in the Comet app's settings.

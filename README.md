@@ -18,12 +18,12 @@ docker compose up -d   # needs the external `proxy` network, see server/README.m
 
 Then follow `server/README.md` and `server/nginx-proxy-manager.md` (disabling buffering matters for accurate numbers).
 The container runs LibreSpeed in `backend` mode, so `empty.php` / `garbage.php` are served at
-the root and the server URL in the app is simply `https://speed.example.com/`.
+the root and the server URL in the app is simply `https://comet.dougals.me/`.
 
 ## App
 
 ```sh
-./gradlew -PcometServerUrl=https://speed.example.com/ :app:assembleDebug   # default server
+./gradlew -PcometServerUrl=https://comet.dougals.me/ :app:assembleDebug   # default server
 ./gradlew :app:testDebugUnitTest
 android run --apks=app/build/outputs/apk/debug/app-debug.apk
 ```

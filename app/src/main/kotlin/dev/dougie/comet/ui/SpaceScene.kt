@@ -135,7 +135,7 @@ fun DrawScope.drawSpace(clock: SceneClock, input: SceneInput, text: TextMeasurer
     val accent = if (input.activeMoon >= 0) colors[input.activeMoon] else colors[1]
     for (i in 0..2) drawOrbit(i, planetCenter, planetRadius, dark)
     for (i in 0..2) if (!moonInFront(clock, input, i)) drawMoon(i, clock, input, text, planetCenter, planetRadius, colors)
-    drawPlanet(clock.planetSpin.floatValue, accent, planetCenter, planetRadius)
+    drawPlanet(clock.planetSpin.floatValue, clock.sunAngle.floatValue, accent, planetCenter, planetRadius)
     for (i in 0..2) if (moonInFront(clock, input, i)) drawMoon(i, clock, input, text, planetCenter, planetRadius, colors)
     drawShip(input.ship.value, input.shipDown.value, clock.planetSpin.floatValue, text, planetCenter, planetRadius, dark)
 }
@@ -237,15 +237,16 @@ private fun DrawScope.drawMoon(
     if (lit) drawCircle(base.copy(alpha = if (active) 0.3f else 0.18f), radius * (if (active) 1.55f else 1.4f), pos)
     drawCircle(Ink, radius + outline, pos)
     drawCircle(body, radius, pos)
-    // Two flat shadow tones on the lower right, then a hard highlight.
+    // Two flat shadow tones on the side away from the sun, then a hard highlight.
+    val dir = Offset(cos(clock.sunAngle.floatValue), sin(clock.sunAngle.floatValue))
     val moon = Path().apply { addOval(Rect(pos, radius)) }
     clipPath(moon) {
-        val light = Path().apply { addOval(Rect(pos + Offset(-radius * 0.22f, -radius * 0.22f), radius)) }
+        val light = Path().apply { addOval(Rect(pos + dir * (radius * 0.3f), radius)) }
         clipPath(light, ClipOp.Difference) { drawCircle(Color.Black.copy(alpha = 0.28f), radius, pos) }
-        val lighter = Path().apply { addOval(Rect(pos + Offset(-radius * 0.5f, -radius * 0.5f), radius)) }
+        val lighter = Path().apply { addOval(Rect(pos + dir * (radius * 0.7f), radius)) }
         clipPath(lighter, ClipOp.Difference) { drawCircle(Color.Black.copy(alpha = 0.22f), radius, pos) }
     }
-    drawCircle(Color.White.copy(alpha = 0.75f), radius * 0.13f, pos + Offset(-radius * 0.45f, -radius * 0.5f))
+    drawCircle(Color.White.copy(alpha = 0.75f), radius * 0.13f, pos + dir * (radius * 0.65f))
 
     if (active) {
         drawArc(
@@ -339,7 +340,7 @@ private fun DrawScope.drawShip(p: Float, down: Float, t: Float, text: TextMeasur
     drawCentered(text, "VPN", Offset(pos.x, pos.y + bob + s * 1.3f), s * 0.55f, if (dark) Color.White else Ink, FontWeight.ExtraBold, 1.5.sp)
 }
 
-private fun DrawScope.drawPlanet(spin: Float, accent: Color, c: Offset, r: Float) {
+private fun DrawScope.drawPlanet(spin: Float, sun: Float, accent: Color, c: Offset, r: Float) {
     // Corona: two flat, hard-edged rings.
     drawCircle(accent.copy(alpha = 0.16f), r * CoronaScale, c)
     drawCircle(accent.copy(alpha = 0.3f), r * 1.17f, c)
@@ -368,13 +369,15 @@ private fun DrawScope.drawPlanet(spin: Float, accent: Color, c: Offset, r: Float
             drawOval(lerp(accent, Color.White, 0.55f + 0.25f * b.tone), topLeft, sz)
             drawOval(Ink.copy(alpha = 0.55f), topLeft, sz, style = Stroke(r * 0.02f))
         }
-        // Two hard shadow tones toward the lower right (light from the upper left).
-        val lit1 = Path().apply { addOval(Rect(c + Offset(-r * 0.2f, -r * 0.2f), r)) }
+        // Two hard shadow tones on the side away from the sun, which slowly orbits the planet.
+        val dir = Offset(cos(sun), sin(sun))
+        val lit1 = Path().apply { addOval(Rect(c + dir * (r * 0.28f), r)) }
         clipPath(lit1, ClipOp.Difference) { drawCircle(Color.Black.copy(alpha = 0.3f), r, c) }
-        val lit2 = Path().apply { addOval(Rect(c + Offset(-r * 0.5f, -r * 0.5f), r)) }
+        val lit2 = Path().apply { addOval(Rect(c + dir * (r * 0.7f), r)) }
         clipPath(lit2, ClipOp.Difference) { drawCircle(Color.Black.copy(alpha = 0.25f), r, c) }
         // Specular highlight.
-        drawOval(Color.White.copy(alpha = 0.55f), c + Offset(-r * 0.62f, -r * 0.62f), androidx.compose.ui.geometry.Size(r * 0.3f, r * 0.17f))
+        val hl = androidx.compose.ui.geometry.Size(r * 0.3f, r * 0.17f)
+        drawOval(Color.White.copy(alpha = 0.55f), c + dir * (r * 0.7f) - Offset(hl.width / 2, hl.height / 2), hl)
     }
     drawCircle(Ink, r, c, style = Stroke(r * 0.045f))
 }

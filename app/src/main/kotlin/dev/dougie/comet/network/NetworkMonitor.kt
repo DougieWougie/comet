@@ -30,7 +30,7 @@ class NetworkMonitor(private val context: Context) {
 
         fun push() {
             val c = caps ?: return
-            trySend(snapshot(c, props))
+            trySend(snapshot(c, props, vpnElsewhere = vpnOnDevice(cm)))
         }
 
         // FLAG_INCLUDE_LOCATION_INFO is required for WifiInfo to carry SSID/BSSID.
@@ -58,11 +58,30 @@ class NetworkMonitor(private val context: Context) {
         }
 
         // Callbacks arrive on one thread, so caps/props need no locking.
-        cm.registerDefaultNetworkCallback(callback, Handler(Looper.getMainLooper()))
-        awaitClose { cm.unregisterNetworkCallback(callback) }
+        val handler = Handler(Looper.getMainLooper())
+        cm.registerDefaultNetworkCallback(callback, handler)
+
+        // A VPN that bypasses this app sends no callbacks, so look for one periodically.
+        val poll = object : Runnable {
+            override fun run() {
+                push()
+                handler.postDelayed(this, VpnPollMillis)
+            }
+        }
+        handler.postDelayed(poll, VpnPollMillis)
+        awaitClose {
+            handler.removeCallbacks(poll)
+            cm.unregisterNetworkCallback(callback)
+        }
     }.conflate()
 
-    private fun snapshot(caps: NetworkCapabilities, props: LinkProperties?): NetworkSnapshot {
+    /** True if any VPN network exists, including one this app's traffic does not use (split tunnelling). */
+    @Suppress("DEPRECATION")
+    private fun vpnOnDevice(cm: ConnectivityManager) = cm.allNetworks.any {
+        cm.getNetworkCapabilities(it)?.hasTransport(NetworkCapabilities.TRANSPORT_VPN) == true
+    }
+
+    private fun snapshot(caps: NetworkCapabilities, props: LinkProperties?, vpnElsewhere: Boolean): NetworkSnapshot {
         val vpn = caps.hasTransport(NetworkCapabilities.TRANSPORT_VPN)
         val transport = when {
             caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) -> Transport.Wifi
@@ -74,6 +93,7 @@ class NetworkMonitor(private val context: Context) {
         return NetworkSnapshot(
             transport = transport,
             vpn = vpn,
+            vpnElsewhere = vpnElsewhere && !vpn,
             validated = caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED),
             metered = !caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED),
             linkDownMbps = caps.linkDownstreamBandwidthKbps.takeIf { it > 0 }?.div(1000),
@@ -141,6 +161,7 @@ class NetworkMonitor(private val context: Context) {
 
     private companion object {
         const val WifiManagerUnknownSsid = "<unknown ssid>"
+        const val VpnPollMillis = 3_000L
         const val RedactedBssid = "02:00:00:00:00:00"
     }
 }

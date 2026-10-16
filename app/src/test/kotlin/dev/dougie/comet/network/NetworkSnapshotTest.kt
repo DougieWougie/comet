@@ -31,6 +31,10 @@ class NetworkSnapshotTest {
         assertEquals("VPN · Cellular", NetworkSnapshot(Transport.Cellular, vpn = true).headline)
     }
 
+    @Test fun bypassedVpnDoesNotChangeTheHeadline() {
+        assertEquals("Wi-Fi 5", NetworkSnapshot(Transport.Wifi, vpnElsewhere = true, wifi = wifi("Wi-Fi 5")).headline)
+    }
+
     @Test fun vpnWithUnknownUnderlyingTransportIsJustVpn() {
         assertEquals("VPN", NetworkSnapshot(Transport.Other, vpn = true).headline)
     }

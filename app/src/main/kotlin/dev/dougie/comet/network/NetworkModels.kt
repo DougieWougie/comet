@@ -25,6 +25,8 @@ data class CellularDetails(
 data class NetworkSnapshot(
     val transport: Transport,
     val vpn: Boolean = false,
+    /** A VPN is up on the device but this app's traffic bypasses it (split tunnelling). */
+    val vpnElsewhere: Boolean = false,
     val validated: Boolean = false,
     val metered: Boolean = false,
     val linkDownMbps: Int? = null,

@@ -161,6 +161,7 @@ private fun Details(
     InfoRow("Internet", if (n.validated) "Verified" else "Not verified")
     InfoRow("Metered", if (n.metered) "Yes" else "No")
     if (n.vpn) InfoRow("VPN", "Active")
+    else if (n.vpnElsewhere) InfoRow("VPN", "On, but not used by Comet")
 
     PublicIpSection(publicIp, onLookUpPublicIp)
 }

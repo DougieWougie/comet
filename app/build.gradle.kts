@@ -17,12 +17,15 @@ android {
         targetSdk = 36
         versionCode = 1
         versionName = "0.1.0"
+        // The UI is English-only; drop the translations bundled by Material and friends.
+        androidResources.localeFilters += "en"
         buildConfigField("String", "DEFAULT_SERVER_URL", "\"${defaultServerUrl.get()}\"")
     }
 
     buildTypes {
         release {
             isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
     }
@@ -31,6 +34,15 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
+
+    packaging.resources.excludes += setOf(
+        "META-INF/androidx/**",
+        "META-INF/*.version",
+        "META-INF/*.kotlin_module",
+        "kotlin/**",
+        "DebugProbesKt.bin",
+        "**/*.kotlin_builtins",
+    )
 
     buildFeatures {
         compose = true

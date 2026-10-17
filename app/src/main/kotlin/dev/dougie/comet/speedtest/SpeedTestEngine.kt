@@ -47,9 +47,10 @@ data class SpeedTestConfig(
     }
 }
 
-/** Parses user input into a base URL ending in "/"; null if it is not an http(s) URL. */
+/** Parses user input into a base URL ending in "/"; null if it is not an http(s) URL or embeds credentials. */
 fun parseServerUrl(input: String): HttpUrl? {
     val url = input.trim().toHttpUrlOrNull() ?: return null
+    if (url.username.isNotEmpty() || url.password.isNotEmpty()) return null
     return if (url.encodedPath.endsWith("/")) url else url.newBuilder().addPathSegment("").build()
 }
 

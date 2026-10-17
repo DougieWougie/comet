@@ -47,7 +47,7 @@ fun gradeColor(grade: Grade, dark: Boolean) = when (grade) {
 
 private class Star(val x: Float, val y: Float, val depth: Float)
 
-private val stars = Random(7).let { r -> List(140) { Star(r.nextFloat(), r.nextFloat(), 0.2f + 0.8f * r.nextFloat()) } }
+private val stars = Random(7).let { r -> List(60) { Star(r.nextFloat(), r.nextFloat(), 0.2f + 0.8f * r.nextFloat()) } }
 
 private class Blob(val lon: Float, val lat: Float, val size: Float, val tone: Float)
 
@@ -126,7 +126,7 @@ fun DrawScope.drawSpace(clock: SceneClock, input: SceneInput, text: TextMeasurer
     val coronaRadius = planetRadius * CoronaScale
     drawIntoCanvas { canvas ->
         canvas.saveLayer(Rect(Offset.Zero, size), Paint())
-        drawComet(clock.cometProgress.floatValue, clock.comet.value, dark)
+        drawComet(clock.cometProgress.floatValue, clock.comet.value, dark, planetCenter)
         drawCircle(Color.Black, coronaRadius, planetCenter, blendMode = BlendMode.DstOut)
         canvas.restore()
     }
@@ -164,26 +164,47 @@ private fun DrawScope.drawStars(scroll: Float, energy: Float, tint: Color) {
     }
 }
 
-private fun DrawScope.drawComet(t: Float, pass: CometPass, dark: Boolean) {
+/** How far the comet's path bows towards the planet, as a fraction of the planet's offset from the chord's midpoint. */
+private const val CometBend = 1.2f
+
+/** Point on the comet's path at [t]: a quadratic curve whose control point is pulled towards [pull] (the planet). */
+private fun cometPoint(from: Offset, to: Offset, pull: Offset, t: Float): Offset {
+    val mid = Offset((from.x + to.x) / 2f, (from.y + to.y) / 2f)
+    val ctrl = Offset(mid.x + (pull.x - mid.x) * CometBend, mid.y + (pull.y - mid.y) * CometBend)
+    val u = 1f - t
+    return Offset(
+        u * u * from.x + 2f * u * t * ctrl.x + t * t * to.x,
+        u * u * from.y + 2f * u * t * ctrl.y + t * t * to.y,
+    )
+}
+
+private fun DrawScope.drawComet(t: Float, pass: CometPass, dark: Boolean, planetCenter: Offset) {
     val from = Offset(pass.fromX * size.width, pass.fromY * size.height)
     val to = Offset(pass.toX * size.width, pass.toY * size.height)
-    val head = Offset(from.x + (to.x - from.x) * t, from.y + (to.y - from.y) * t)
+    val head = cometPoint(from, to, planetCenter, t)
     val len = kotlin.math.hypot(to.x - from.x, to.y - from.y)
-    val dir = Offset((to.x - from.x) / len, (to.y - from.y) / len)
-    val normal = Offset(-dir.y, dir.x)
     val tailLength = size.width * 0.45f * pass.scale
     val w = size.width * 0.009f * pass.scale
     val core = if (dark) Color(0xFFE8F8FF) else Color(0xFFFFFFFF)
     val glow = if (dark) Color(0xFF4DD8FF) else Color(0xFF2A8FD0)
 
-    // Flat, pointed tail in three nested tones, each with a hard edge.
+    // Flat, pointed tail in three nested tones, each with a hard edge, following the curve behind the head.
     fun tail(width: Float, length: Float, color: Color) {
-        val tip = Offset(head.x - dir.x * length, head.y - dir.y * length)
+        val steps = 14
+        val dt = length / len
+        val points = List(steps + 1) { cometPoint(from, to, planetCenter, t - dt * it / steps) }
+        fun side(k: Int, sign: Float): Offset {
+            val a = points[(k - 1).coerceAtLeast(0)]
+            val b = points[(k + 1).coerceAtMost(steps)]
+            val d = kotlin.math.hypot(a.x - b.x, a.y - b.y).takeIf { it > 0f } ?: 1f
+            val taper = width * (1f - k.toFloat() / steps)
+            return Offset(points[k].x + sign * (a.y - b.y) / d * taper, points[k].y - sign * (a.x - b.x) / d * taper)
+        }
         drawPath(
             Path().apply {
-                moveTo(head.x + normal.x * width, head.y + normal.y * width)
-                lineTo(tip.x, tip.y)
-                lineTo(head.x - normal.x * width, head.y - normal.y * width)
+                moveTo(side(0, 1f).x, side(0, 1f).y)
+                for (k in 1..steps) side(k, 1f).let { lineTo(it.x, it.y) }
+                for (k in steps downTo 0) side(k, -1f).let { lineTo(it.x, it.y) }
                 close()
             },
             color,

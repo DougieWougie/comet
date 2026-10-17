@@ -26,6 +26,7 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -35,6 +36,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -42,6 +44,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -55,7 +58,9 @@ import dev.dougie.comet.CometViewModel
 import dev.dougie.comet.speedtest.Grading
 import dev.dougie.comet.speedtest.Phase
 import dev.dougie.comet.speedtest.TestState
+import java.time.LocalDate
 import java.util.Locale
+import kotlinx.coroutines.launch
 
 private const val PlanetRadiusFraction = 0.19f
 private const val PlanetCenterFraction = 0.46f
@@ -71,6 +76,8 @@ fun CometApp(vm: CometViewModel, dark: Boolean) {
     var showSettings by remember { mutableStateOf(false) }
 
     val view = LocalView.current
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     SideEffect { view.keepScreenOn = test.running }
 
     // Permissions are asked for only when the user taps the matching control in the bubble.
@@ -176,6 +183,12 @@ fun CometApp(vm: CometViewModel, dark: Boolean) {
                 modifier = Modifier.weight(1f, fill = false),
             )
             Row {
+                val card = remember(test, network) { ShareCard.from(test, network, LocalDate.now()) }
+                if (card != null) {
+                    IconButton(onClick = { scope.launch { shareResult(context, card, dark) } }) {
+                        Icon(Icons.Default.Share, contentDescription = "Share result", tint = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.8f))
+                    }
+                }
                 IconButton(onClick = { vm.setDarkMode(!dark) }) {
                     Text(
                         if (dark) "☀" else "☾", fontSize = 22.sp,
@@ -212,4 +225,4 @@ private fun PlanetLabel(test: TestState) {
     }
 }
 
-private fun format(v: Double): String = if (v >= 100) String.format(Locale.US, "%.0f", v) else String.format(Locale.US, "%.1f", v)
+internal fun format(v: Double): String = if (v >= 100) String.format(Locale.US, "%.0f", v) else String.format(Locale.US, "%.1f", v)

@@ -34,9 +34,13 @@ class CometPass(val fromX: Float, val fromY: Float, val toX: Float, val toY: Flo
     }
 }
 
+const val SunStart = 5f * PI.toFloat() / 4f
+
 class SceneClock {
     val comet = mutableStateOf(CometPass.random())
     val planetSpin = mutableFloatStateOf(0f)
+    /** Direction of the sun around the planet, in radians; starts upper-left and creeps clockwise. */
+    val sunAngle = mutableFloatStateOf(SunStart)
     val starScroll = mutableFloatStateOf(0f)
     val cometProgress = mutableFloatStateOf(0f)
     val orbit = arrayOf(mutableFloatStateOf(0.4f), mutableFloatStateOf(2.5f), mutableFloatStateOf(4.6f))
@@ -56,6 +60,7 @@ fun rememberSceneClock(energy: Float, activeMoon: Int): SceneClock {
                 last = now
                 val e = energyNow
                 clock.planetSpin.floatValue += dt * (0.25f + 0.9f * e)
+                clock.sunAngle.floatValue += dt * (0.12f + 0.2f * e)
                 clock.starScroll.floatValue += dt * (0.015f + 0.12f * e)
                 val p = clock.cometProgress.floatValue + dt * (0.1f + 0.2f * e)
                 if (p >= 1.15f) {

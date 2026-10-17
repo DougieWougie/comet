@@ -67,4 +67,9 @@ class SpeedTestEngineTest {
         assertEquals("https://speed.example.com/x/", parseServerUrl("https://speed.example.com/x").toString())
         assertEquals(null, parseServerUrl("not a url"))
     }
+
+    @Test fun serverUrlWithCredentialsIsRejected() {
+        assertEquals(null, parseServerUrl("https://user:pass@speed.example.com/"))
+        assertEquals(null, parseServerUrl("https://user@speed.example.com/"))
+    }
 }

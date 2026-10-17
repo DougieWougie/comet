@@ -4,6 +4,7 @@ import android.content.ClipData
 import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.geometry.Offset
@@ -12,6 +13,7 @@ import androidx.compose.ui.graphics.Canvas
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asAndroidBitmap
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.CanvasDrawScope
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.text.TextMeasurer
@@ -20,16 +22,20 @@ import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.font.createFontFamilyResolver
 import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.sp
 import androidx.core.content.FileProvider
+import dev.dougie.comet.R
 import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 private const val CardWidth = 1080
 private const val CardHeight = 1350 // 4:5, which chat and social apps crop least
+private const val LogoWidth = 300
 private const val SharedDir = "shared"
 private val Ink = Color(0xFF070A1C)
 
@@ -68,7 +74,9 @@ fun renderShareCard(context: Context, card: ShareCard, dark: Boolean): Bitmap {
         drawSpace(clock, input, text, radius, Offset(size.width / 2, size.height * 0.4f))
 
         val fg = if (dark) Color.White else Ink
-        drawTitle(text, "COMET", Offset(size.width / 2, size.height * 0.07f), 64f, fg, FontWeight.ExtraBold, 8.sp)
+        val logo = BitmapFactory.decodeResource(context.resources, if (dark) R.drawable.forage_logo_light else R.drawable.forage_logo_dark).asImageBitmap()
+        val logoSize = IntSize(LogoWidth, LogoWidth * logo.height / logo.width)
+        drawImage(logo, dstOffset = IntOffset((CardWidth - logoSize.width) / 2, (size.height * 0.065f).toInt() - logoSize.height / 2), dstSize = logoSize)
         drawTitle(text, card.subtitle, Offset(size.width / 2, size.height * 0.115f), 34f, fg.copy(alpha = 0.8f), FontWeight.Medium)
     }
     return image.asAndroidBitmap()

@@ -14,10 +14,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -46,7 +44,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.semantics.Role
@@ -58,7 +55,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.dougie.comet.CometViewModel
-import dev.dougie.comet.R
 import dev.dougie.comet.speedtest.Grading
 import dev.dougie.comet.speedtest.Phase
 import dev.dougie.comet.speedtest.TestState
@@ -166,12 +162,6 @@ fun CometApp(vm: CometViewModel, dark: Boolean) {
             Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(horizontal = 20.dp, vertical = 36.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Image(
-                painterResource(if (dark) R.drawable.forage_logo_light else R.drawable.forage_logo_dark),
-                contentDescription = "Forage",
-                alpha = 0.7f,
-                modifier = Modifier.height(26.dp),
-            )
             if (test.phase == Phase.Failed) {
                 Text(test.error ?: "Test failed", color = MaterialTheme.colorScheme.error, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 16.dp))
             }

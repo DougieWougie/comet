@@ -1,10 +1,3 @@
-<p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/logo/forage-light.png">
-    <img src="docs/logo/forage-dark.png" width="300" alt="Forage">
-  </picture>
-</p>
-
 # Comet
 
 Network speed test for Android, themed as a comet rushing through space. The current test is a
